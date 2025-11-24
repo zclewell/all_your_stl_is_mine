@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Preview</title>
+    <link rel="stylesheet" href="preview.css">
+</head>
+
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div id="loadingText">Loading Model...</div>
+    </div>
+    <div id="error" style="display: none;">
+        <div class="error-icon">⚠️</div>
+        <div id="errorText">Failed to load model</div>
+    </div>
+    <div id="info">
+        <span id="fileName">Unknown File</span>
+        <span id="fileType"></span>
+    </div>
+    <canvas id="canvas"></canvas>
+
+    <script src="lib/three.min.js"></script>
+    <script src="lib/OrbitControls.js"></script>
+    <script src="lib/GLTFLoader.js"></script>
+    <script src="lib/STLLoader.js"></script>
+    <script src="lib/OBJLoader.js"></script>
+    <script src="preview.js"></script>
+</body>
+
+</html>

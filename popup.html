@@ -4,26 +4,66 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  </label>
-  </div>
-  </header>
+  <title>3D Downloader</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
 
-  <div class="content-area">
-    <ul id="fileList">
-      <!-- Files injected here -->
-    </ul>
-  </div>
+<body>
+  <div class="app-container">
+    <header>
+      <div class="logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+          </path>
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+          <line x1="12" y1="22.08" x2="12" y2="12"></line>
+        </svg>
+      </div>
+      <div class="search-bar">
+        <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input type="text" id="searchInput" placeholder="Search">
+      </div>
+    </header>
 
-  <footer>
-    <span id="totalCount">Total intercepted: 0 files</span>
-    <div class="footer-actions">
-      <button id="clearBtn" class="icon-btn-text" title="Clear All">
-        Clear
-      </button>
+    <div class="content-area">
+      <ul id="fileList">
+        <!-- Files injected here -->
+      </ul>
+
+      <div class="settings-area">
+        <div class="setting-item">
+          <span class="setting-label">Notify on detection</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="notifyToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <span class="setting-label">Deep Scan (Experimental)</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="deepScanToggle">
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
     </div>
-  </footer>
+
+    <footer>
+      <span id="totalCount">Total intercepted: 0 files</span>
+      <div class="footer-actions">
+        <button id="clearBtn" class="icon-btn-text" title="Clear All">
+          Clear
+        </button>
+      </div>
+    </footer>
   </div>
   <script src="popup.js"></script>
-  </body>
+</body>
 
 </html>

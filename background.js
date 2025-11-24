@@ -40,68 +40,141 @@ function formatBytes(bytes, decimals = 1) {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(dm))} ${sizes[i]}`;
 }
 
+// Magic Byte Signatures
+const MAGIC_SIGNATURES = [
+  { type: '.glb', bytes: [0x67, 0x6C, 0x54, 0x46] }, // glTF
+  { type: '.fbx', bytes: [0x4B, 0x61, 0x79, 0x64, 0x61, 0x72, 0x61, 0x20, 0x46, 0x42, 0x58, 0x20, 0x42, 0x69, 0x6E, 0x61, 0x72, 0x79, 0x20, 0x20, 0x00, 0x1a, 0x00] }, // Kaydara FBX Binary
+  { type: '.ply', bytes: [0x70, 0x6C, 0x79] }, // ply
+  { type: '.stl', bytes: [0x73, 0x6F, 0x6C, 0x69, 0x64] }, // solid (ASCII STL)
+  { type: '.usdz', bytes: [0x50, 0x4B, 0x03, 0x04] } // PK.. (Zip/USDZ - weak check but useful)
+];
+
+const GENERIC_TYPES = [
+  'application/octet-stream',
+  'application/binary',
+  'application/x-unknown-content-type'
+];
+
+// 100 MB limit for deep scan candidates to avoid issues
+const MAX_DEEP_SCAN_SIZE = 100 * 1024 * 1024;
+
+async function checkMagicBytes(url) {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Range': 'bytes=0-511' } // Fetch first 512 bytes
+    });
+
+    if (!response.ok && response.status !== 206) return null;
+
+    const buffer = await response.arrayBuffer();
+    const uint8 = new Uint8Array(buffer);
+
+    for (const sig of MAGIC_SIGNATURES) {
+      if (uint8.length >= sig.bytes.length) {
+        let match = true;
+        for (let i = 0; i < sig.bytes.length; i++) {
+          if (uint8[i] !== sig.bytes[i]) {
+            match = false;
+            break;
+          }
+        }
+        if (match) return sig.type;
+      }
+    }
+  } catch (err) {
+    console.error('Deep scan failed for:', url, err);
+  }
+  return null;
+}
+
 chrome.webRequest.onHeadersReceived.addListener(
   (details) => {
     if (details.type === 'xmlhttprequest' || details.type === 'main_frame' || details.type === 'sub_frame' || details.type === 'other') {
+
+      let detectedType = null;
+      let size = 'Unknown';
+      let sizeBytes = 0;
+
+      // 1. Check Extension
       if (is3DFile(details.url)) {
-        let size = 'Unknown';
-        if (details.responseHeaders) {
-          const contentLength = details.responseHeaders.find(h => h.name.toLowerCase() === 'content-length');
-          if (contentLength) {
-            size = formatBytes(parseInt(contentLength.value));
-          }
-        }
-
-        const fileData = {
-          url: details.url,
-          type: 'unknown', // Could try to infer from extension or Content-Type
-          origin: details.initiator || 'Unknown Origin',
-          timestamp: Date.now(),
-          size: size
-        };
-
         // Infer type from extension
         const lowerUrl = details.url.toLowerCase();
         for (const ext of EXTENSIONS) {
           if (lowerUrl.includes(ext)) {
-            fileData.type = ext;
+            detectedType = ext;
             break;
           }
         }
+      }
 
-        if (!foundFiles.has(details.url)) {
-          foundFiles.set(details.url, fileData);
-          saveFiles();
+      // Get Size
+      if (details.responseHeaders) {
+        const contentLength = details.responseHeaders.find(h => h.name.toLowerCase() === 'content-length');
+        if (contentLength) {
+          sizeBytes = parseInt(contentLength.value);
+          size = formatBytes(sizeBytes);
+        }
+      }
 
-          // Notify popup if open
-          chrome.runtime.sendMessage({ type: 'NEW_FILE', file: fileData }).catch(() => {
-            // Popup might be closed, ignore error
-          });
+      // 2. Deep Scan (if not already detected and generic type)
+      if (!detectedType) {
+        chrome.storage.local.get(['deepScanEnabled'], (result) => {
+          if (result.deepScanEnabled) {
+            let contentType = 'unknown';
+            if (details.responseHeaders) {
+              const ctHeader = details.responseHeaders.find(h => h.name.toLowerCase() === 'content-type');
+              if (ctHeader) contentType = ctHeader.value.toLowerCase();
+            }
 
-          // Check if notifications are enabled
-          chrome.storage.local.get(['notificationsEnabled'], (result) => {
-            if (result.notificationsEnabled) {
-              chrome.notifications.create({
-                type: 'basic',
-                iconUrl: 'icon.png', // We need an icon, but for now it might default or fail gracefully if missing. 
-                // Actually, let's use a placeholder or just rely on the browser default if possible, 
-                // but Chrome usually requires an iconUrl. 
-                // Since we don't have an icon yet, let's skip iconUrl or use a data URI if needed.
-                // For this step, I'll assume we might need to add a dummy icon or it won't show.
-                // Let's try to use a standard one or just omit if it allows (it usually doesn't).
-                // I will add a TODO to add an icon.
-                title: '3D File Detected!',
-                message: `Found a ${fileData.type} file.`
+            if (GENERIC_TYPES.some(t => contentType.includes(t)) && sizeBytes > 0 && sizeBytes < MAX_DEEP_SCAN_SIZE) {
+              // Perform Deep Scan
+              checkMagicBytes(details.url).then(magicType => {
+                if (magicType) {
+                  processFoundFile(details, magicType, size);
+                }
               });
             }
-          });
-        }
+          }
+        });
+      } else {
+        processFoundFile(details, detectedType, size);
       }
     }
   },
   { urls: ["<all_urls>"] },
   ["responseHeaders"]
 );
+
+function processFoundFile(details, type, size) {
+  const fileData = {
+    url: details.url,
+    type: type,
+    origin: details.initiator || 'Unknown Origin',
+    timestamp: Date.now(),
+    size: size
+  };
+
+  if (!foundFiles.has(details.url)) {
+    foundFiles.set(details.url, fileData);
+    saveFiles();
+
+    // Notify popup if open
+    chrome.runtime.sendMessage({ type: 'NEW_FILE', file: fileData }).catch(() => { });
+
+    // Check if notifications are enabled
+    chrome.storage.local.get(['notificationsEnabled'], (result) => {
+      if (result.notificationsEnabled) {
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icon.png',
+          title: '3D File Detected!',
+          message: `Found a ${fileData.type} file.`
+        });
+      }
+    });
+  }
+}
 
 function saveFiles() {
   chrome.storage.local.set({ foundFiles: Array.from(foundFiles.values()) });

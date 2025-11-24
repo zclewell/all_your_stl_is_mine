@@ -4,9 +4,28 @@ const fileList = document.getElementById('fileList');
 const searchInput = document.getElementById('searchInput');
 const totalCount = document.getElementById('totalCount');
 const clearBtn = document.getElementById('clearBtn');
-const monitoringToggle = document.getElementById('monitoringToggle');
+const notifyToggle = document.getElementById('notifyToggle');
+const deepScanToggle = document.getElementById('deepScanToggle');
 
 let allFiles = [];
+
+// Load preferences
+chrome.storage.local.get(['notificationsEnabled', 'deepScanEnabled'], (result) => {
+    if (notifyToggle) notifyToggle.checked = result.notificationsEnabled || false;
+    if (deepScanToggle) deepScanToggle.checked = result.deepScanEnabled || false;
+});
+
+if (notifyToggle) {
+    notifyToggle.addEventListener('change', () => {
+        chrome.storage.local.set({ notificationsEnabled: notifyToggle.checked });
+    });
+}
+
+if (deepScanToggle) {
+    deepScanToggle.addEventListener('change', () => {
+        chrome.storage.local.set({ deepScanEnabled: deepScanToggle.checked });
+    });
+}
 
 function renderFiles(files) {
     fileList.innerHTML = '';
@@ -61,6 +80,19 @@ function renderFiles(files) {
         typeBadge.className = 'file-type-badge';
         typeBadge.textContent = file.type.replace('.', '').toUpperCase();
 
+        // Preview Action
+        const previewBtn = document.createElement('button');
+        previewBtn.className = 'download-action'; // Reuse style for now
+        previewBtn.title = 'Preview 3D Model';
+        previewBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+            </svg>
+            <span class="save-text">View</span>
+        `;
+        previewBtn.onclick = () => openPreview(file.url, file.type);
+
         // Download Action
         const downloadBtn = document.createElement('button');
         downloadBtn.className = 'download-action';
@@ -78,12 +110,18 @@ function renderFiles(files) {
         li.appendChild(detailsDiv);
         li.appendChild(sizeSpan);
         li.appendChild(typeBadge);
+        li.appendChild(previewBtn);
         li.appendChild(downloadBtn);
 
         fileList.appendChild(li);
     });
 
     updateFooter(files.length);
+}
+
+function openPreview(url, type) {
+    const previewUrl = chrome.runtime.getURL(`preview.html?url=${encodeURIComponent(url)}&type=${encodeURIComponent(type)}`);
+    chrome.tabs.create({ url: previewUrl });
 }
 
 function updateFooter(count) {
@@ -123,11 +161,7 @@ clearBtn.addEventListener('click', () => {
     });
 });
 
-// Monitoring toggle (Visual only for now, or could link to background)
-monitoringToggle.addEventListener('change', () => {
-    // In a real app, send message to background to stop/start listeners
-    // For now, just a visual toggle as requested in UI
-});
+
 
 // Listen for updates from background
 chrome.runtime.onMessage.addListener((message) => {
