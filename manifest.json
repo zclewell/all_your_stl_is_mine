@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "All Your STL Are Mine",
+  "version": "1.0",
+  "description": "Download 3D files (STL, OBJ, GLB, etc.) from websites.",
+  "permissions": [
+    "webRequest",
+    "storage",
+    "downloads",
+    "notifications"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "3D Downloader",
+    "default_icon": {
+      "16": "icon.png",
+      "48": "icon.png",
+      "128": "icon.png"
+    }
+  },
+  "icons": {
+    "16": "icon.png",
+    "48": "icon.png",
+    "128": "icon.png"
+  }
+}
